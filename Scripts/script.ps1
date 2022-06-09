@@ -1,44 +1,50 @@
-#Script 2 de ASO02_T08 de Alex Covalencu y Carlos Mena.
+<#
+   .Description
+   Project: PowerScript
+   Author/Autor: Carlos Mena (https://github.com/carlosm00)
+   Definition: PowerShell Script for forcing AD user password change and forbiding the change again. 
+      Feel free to contribute on GitHub (https://github.com/carlosm00/PowerScript)
+
+#>
 
 #$ErrorActionPreference="SilentlyContinue"
-$nuevaPass = convertto-securestring "Monitor?2" -asplaintext -force
-$clase = Read-Host "Introduzca un nombre de grupo/clase existente [p.e. asir1]"
+$identity = Read-Host "Provide the group of users as an AD Organizational Unit Identity: "
+$textToForget= Read-Host "Please, provide the new generic password: "
+$newPass = convertto-securestring $textToForget -asplaintext -force
+$textToForget = ""
 
-$indentity= "OU=$clase,OU=Usuarios,DC=ASO212-220,DC=priv"
-$comproba= (Get-ADOrganizationalUnit -Identity $indentity).DistinguishedName
+$check= (Get-ADOrganizationalUnit -Identity $indentity).DistinguishedName
 
-#Función de cambio
-function cambioContra {
+# Change function
+function PasswordChange {
    
-    #recogemos cada uno de los usuarios en una variable
-    $usuarios = @((Get-ADUser -Filter * -SearchBase $indentity ).SAMAccountName)
+    # Collecting users from provided identity
+    $users = @((Get-ADUser -Filter * -SearchBase $indentity ).SAMAccountName)
          
-    #Cambiamos la password y prohibimos su cambio
+    # Iterative change of password
+    foreach ($user in $users)
+        Set-ADAccountPassword -Identity $user -NewPassword $newPass -reset
 
-    for($i=0;$usuarios[$i] -ne $NULL;$i++){
-       
-        $indentity2 ="CN=$($usuarios[$i]),OU=$clase,OU=Usuarios,DC=ASO212-220,DC=priv"
-
-        Set-ADAccountPassword -Identity $usuarios[$i] -NewPassword $nuevaPass -reset
-
-        #bloqueamos el cambio de password
-        Set-ADUser -SamAccountName $usuarios[$i] -Identity $indentity2 -CannotChangePassword:$true -PassThru
+        # Block option to change password
+        Set-ADUser -SamAccountName $user -Identity $indentity -CannotChangePassword:$true -PassThru
     }
 
-    Write-host "Cambio realizado!" -BackgroundColor black -ForegroundColor green
+    Write-host "Change completed!" -BackgroundColor black -ForegroundColor green
 }
 
-#comprobar que existe
-if ($comproba -eq $indentity) {
-        cambioContra
+# Checking that they actually exist
+if ($check -eq $indentity) {
+        PasswordChange
 }
 else {
-   Write-Host "ERROR: Que esa OU no existe!" -BackgroundColor red -ForegroundColor yellow
-   $clase = Read-Host "Introduzca un nombre de grupo/clase EXISTENTE [p.e. asir1]"
-   $indentity= "OU=$clase,OU=Usuarios,DC=ASO212-220,DC=priv"
-   $comproba= (Get-ADOrganizationalUnit -Identity $indentity).DistinguishedName
+   Write-Host "ERROR: OU does not exists" -BackgroundColor red -ForegroundColor yellow
+   $identity = Read-Host "Provide the group of users as an AD Organizational Unit Identity: "
+   $textToForget= Read-Host "Please, provide the new generic password: "
+   $newPass = convertto-securestring $textToForget -asplaintext -force
+   $textToForget = ""
+   $check= (Get-ADOrganizationalUnit -Identity $indentity).DistinguishedName
 
-   if ($comproba -eq $indentity) {
-        cambioContra
+   if ($check -eq $indentity) {
+        PasswordChange
     }
 }
